@@ -171,7 +171,11 @@ if isinstance(result_df, pd.DataFrame):
     result_df = result_df.reset_index(drop=True)
     result_df = result_df.astype(str)
     result_df.columns = result_df.columns.astype(str)
-
+    st.write("📌 result_df shape:", result_df.shape)
+    st.write("📌 result_df preview:")
+    st.write(result_df.head())
+    st.write("📌 result_df columns:", result_df.columns.tolist())
+    st.write("📌 result_df dtypes:", result_df.dtypes.to_dict())
 
     if is_displayable(result_df):
         st.dataframe(result_df)

@@ -138,23 +138,6 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
 
-    # Build columns to return
-    columns_to_return = ['SKU', brand_col, config_col, status_col, 'similarity']
-    rename_dict = {
-        brand_col: 'Brand',
-        config_col: 'Configuration',
-        status_col: 'Model Status'
-    }
-
-    if 'Console Control Type' in df.columns:
-        columns_to_return.insert(-1, 'Console Control Type')
-        rename_dict['Console Control Type'] = 'Console Control Type'
-    elif 'spec_22' in df.columns:
-        columns_to_return.insert(-1, 'spec_22')
-        rename_dict['spec_22'] = 'Console Control Type'
-
-    return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
-
 # 📥 Ask the user for a SKU
 input_sku = st.text_input("Enter a competitor SKU:")
 

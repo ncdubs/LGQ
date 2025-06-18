@@ -154,9 +154,14 @@ if input_sku:
     else:
         result_df = find_similar_non_ge_same_config(input_sku)
 
-    # 📊 Display results
-    st.subheader("Top Matches:")
-    st.dataframe(result_df)
+    if isinstance(result_df, pd.DataFrame):
+        st.subheader("Top Matches:")
+        result_df = result_df.astype(str)
+        result_df = result_df.reset_index(drop=True)
+        st.dataframe(result_df)
+    else:
+        st.error(result_df)
+
 
 # Use for finding a GE similar product
 sku_input = input("Enter a SKU: ")

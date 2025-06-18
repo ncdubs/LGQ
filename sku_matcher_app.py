@@ -180,17 +180,3 @@ if isinstance(result_df, pd.DataFrame):
         st.dataframe(result_df)
 else:
     st.error(result_df)
-
-
-
-
-# Use for finding a GE similar product
-sku_input = input("Enter a SKU: ")
-results = find_similar_ge_same_config(sku_input, top_n=20)
-results
-
-#Use for finding a different brand similarity
-sku_input = input("Enter a SKU: ")
-results = find_similar_non_ge_same_config(sku_input, top_n=5)
-results
-

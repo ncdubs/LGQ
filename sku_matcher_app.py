@@ -154,18 +154,29 @@ if input_sku:
     else:
         result_df = find_similar_non_ge_same_config(input_sku)
 
+import json  # make sure this is at the top of your script if not already
+
+def is_displayable(df):
+    try:
+        json.dumps(df.to_dict(orient="records"))  # simulate Streamlit rendering
+        return True
+    except Exception as e:
+        st.error(f"DataFrame serialization failed: {e}")
+        return False
+
 if isinstance(result_df, pd.DataFrame):
     st.subheader("Top Matches:")
 
-    # 🔧 Deep-clean the dataframe before showing
     result_df = result_df.copy()
     result_df = result_df.reset_index(drop=True)
     result_df = result_df.astype(str)
     result_df.columns = result_df.columns.astype(str)
 
-    st.dataframe(result_df)
+    if is_displayable(result_df):
+        st.dataframe(result_df)
 else:
     st.error(result_df)
+
 
 
 

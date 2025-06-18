@@ -175,6 +175,10 @@ if isinstance(result_df, pd.DataFrame):
     result_df = result_df.astype(str)
     result_df.columns = result_df.columns.astype(str)
 
+    st.write("📌 raw result_df value:", result_df)
+    st.write("📌 result_df type (again):", type(result_df))
+
+
     if is_displayable(result_df):
         st.dataframe(result_df)
 else:

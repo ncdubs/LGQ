@@ -125,7 +125,7 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-      return filtered[['SKU', brand_col, config_col, 'similarity']].rename(
+    return filtered[['SKU', brand_col, config_col, 'similarity']].rename(
         columns={brand_col: 'Brand', config_col: 'Configuration'}
     ).head(top_n)
 

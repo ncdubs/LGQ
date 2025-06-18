@@ -141,6 +141,22 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
+# 📥 Ask the user for a SKU
+input_sku = st.text_input("Enter a competitor SKU:")
+
+# ✨ Optional: Choose search type
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
+# 🔍 Trigger matching only when input is provided
+if input_sku:
+    if search_type == "GE only":
+        result_df = find_similar_ge_same_config(input_sku)
+    else:
+        result_df = find_similar_non_ge_same_config(input_sku)
+
+    # 📊 Display results
+    st.subheader("Top Matches:")
+    st.dataframe(result_df)
 
 # Use for finding a GE similar product
 sku_input = input("Enter a SKU: ")

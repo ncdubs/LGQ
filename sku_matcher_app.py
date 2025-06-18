@@ -166,11 +166,12 @@ if isinstance(result_df, pd.DataFrame):
     st.write("✅ result_df columns + types:")
     st.write(result_df.dtypes)
 
-
     result_df = result_df.copy()
     result_df = result_df.reset_index(drop=True)
     result_df = result_df.astype(str)
     result_df.columns = result_df.columns.astype(str)
+    result_df = result_df.applymap(str)  # <- makes every cell explicitly a string
+
     st.write("📌 result_df shape:", result_df.shape)
     st.write("📌 result_df preview:")
     st.write(result_df.head())

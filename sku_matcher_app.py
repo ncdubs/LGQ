@@ -13,15 +13,10 @@ uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xl
 if not uploaded_file:
     st.stop()
 
-# Step 1: Upload the file (dowloaded from Sku Metrix)
-from google.colab import files
-uploaded = files.upload()
-
 # Step 2: Load and transpose the single sheet
 import pandas as pd
 
-file_name = list(uploaded.keys())[0]
-df_raw = pd.read_excel(file_name, header=None)
+df_raw = pd.read_excel(uploaded_file, header=None)
 
 # Transpose so columns (SKUs) become rows
 df = df_raw.T

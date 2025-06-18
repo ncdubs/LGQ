@@ -125,6 +125,10 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
+      return filtered[['SKU', brand_col, config_col, 'similarity']].rename(
+        columns={brand_col: 'Brand', config_col: 'Configuration'}
+    ).head(top_n)
+
     # Build columns to return
     columns_to_return = ['SKU', brand_col, config_col, status_col, 'similarity']
     rename_dict = {
@@ -153,6 +157,3 @@ sku_input = input("Enter a SKU: ")
 results = find_similar_non_ge_same_config(sku_input, top_n=5)
 results
 
-  return filtered[['SKU', brand_col, config_col, 'similarity']].rename(
-        columns={brand_col: 'Brand', config_col: 'Configuration'}
-    ).head(top_n)

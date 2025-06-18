@@ -120,9 +120,23 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-    return filtered[['SKU', brand_col, config_col, 'similarity']].rename(
-        columns={brand_col: 'Brand', config_col: 'Configuration'}
-    ).head(top_n)
+    # Build columns to return
+    columns_to_return = ['SKU', brand_col, config_col, status_col, 'similarity']
+    rename_dict = {
+        brand_col: 'Brand',
+        config_col: 'Configuration',
+        status_col: 'Model Status'
+    }
+
+    if 'Console Control Type' in df.columns:
+        columns_to_return.insert(-1, 'Console Control Type')
+        rename_dict['Console Control Type'] = 'Console Control Type'
+    elif 'spec_22' in df.columns:
+        columns_to_return.insert(-1, 'spec_22')
+        rename_dict['spec_22'] = 'Console Control Type'
+
+    return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
+
 
     # Build columns to return
     columns_to_return = ['SKU', brand_col, config_col, status_col, 'similarity']

@@ -164,8 +164,11 @@ def is_displayable(df):
         st.error(f"DataFrame serialization failed: {e}")
         return False
 
+st.write("🧪 result_df type:", type(result_df))
 if isinstance(result_df, pd.DataFrame):
-    st.subheader("Top Matches:")
+    st.write("✅ result_df columns + types:")
+    st.write(result_df.dtypes)
+
 
     result_df = result_df.copy()
     result_df = result_df.reset_index(drop=True)

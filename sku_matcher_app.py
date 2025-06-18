@@ -154,7 +154,7 @@ if input_sku:
     else:
         result_df = find_similar_non_ge_same_config(input_sku)
 
-    if isinstance(result_df, pd.DataFrame):
+if isinstance(result_df, pd.DataFrame):
     st.subheader("Top Matches:")
 
     # 🔧 Deep-clean the dataframe before showing

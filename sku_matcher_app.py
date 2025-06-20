@@ -16,43 +16,68 @@ uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xl
 if not uploaded_file:
     st.stop()
 
-# Step 1: Load and transpose the Excel sheet
+# 🧼 Step 1: Load and preprocess Excel file
 df_raw = pd.read_excel(uploaded_file, header=None)
+
+# Transpose to get SKUs as rows
 df = df_raw.T
 df.columns = df.iloc[0]
 df = df[1:]
 df.reset_index(drop=True, inplace=True)
 
-# Ensure SKU column exists and clean
+# 🔍 Look for a row that contains description-like values
+keywords = ["cu ft", "side by side", "french door", '"', "in.", "top freezer", "bottom freezer", "refrigerator"]
+searchable = df.applymap(lambda x: str(x).lower())
+row_scores = []
+for i, row in searchable.iterrows():
+    score = sum(any(kw in cell for kw in keywords) for cell in row)
+    if score > 2:
+        row_scores.append((i, score))
+
+if row_scores:
+    best_row_index = sorted(row_scores, key=lambda x: x[1], reverse=True)[0][0]
+    description_row = df.iloc[best_row_index]
+    df_raw_rebuilt = pd.concat([
+        df_raw.iloc[:2],  # Keep first two rows
+        pd.DataFrame([["Description"] + description_row.tolist()]),
+        df_raw.iloc[2:]
+    ]).reset_index(drop=True)
+
+    # Transpose again after inserting
+    df = df_raw_rebuilt.T
+    df.columns = df.iloc[0]
+    df = df[1:]
+    df.reset_index(drop=True, inplace=True)
+
+# 🔍 Basic cleaning
 if 'SKU' not in df.columns:
     df.rename(columns={df.columns[0]: 'SKU'}, inplace=True)
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# Step 2: Combine all spec columns into one text field
+# 🔀 Build combined spec string for similarity matching
 spec_columns = [col for col in df.columns if col != 'SKU']
 df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 
-# Step 3: TF-IDF vectorization
+# 🔢 TF-IDF Model
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
-# Step 4: Matching Functions
+# 🔎 Matching Functions
 def find_similar_ge_same_config(input_sku, top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
         return f"SKU {input_sku} not found."
 
     input_index = input_row.index[0]
-    input_vector = tfidf_matrix[input_index]
-    similarities = cosine_similarity(input_vector, tfidf_matrix)[0]
+    similarities = cosine_similarity(tfidf_matrix[input_index], tfidf_matrix)[0]
 
     brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
     config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
     status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+    description_col = 'Description' if 'Description' in df.columns else None
 
     input_config = input_row.iloc[0][config_col]
-
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
@@ -64,19 +89,18 @@ def find_similar_ge_same_config(input_sku, top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-    columns_to_return = ['SKU', brand_col, config_col, status_col]
+    columns_to_return = ['SKU', brand_col]
+    if description_col:
+        columns_to_return.append(description_col)
+    columns_to_return += [config_col, status_col]
+
     rename_dict = {
         brand_col: 'Brand',
         config_col: 'Configuration',
-        status_col: 'Model Status'
+        status_col: 'Model Status',
     }
-
-    if 'Console Control Type' in df.columns:
-        columns_to_return.insert(-1, 'Console Control Type')
-        rename_dict['Console Control Type'] = 'Console Control Type'
-    elif 'spec_22' in df.columns:
-        columns_to_return.insert(-1, 'spec_22')
-        rename_dict['spec_22'] = 'Console Control Type'
+    if description_col:
+        rename_dict[description_col] = 'Description'
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
@@ -86,15 +110,14 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
         return f"SKU {input_sku} not found."
 
     input_index = input_row.index[0]
-    input_vector = tfidf_matrix[input_index]
-    similarities = cosine_similarity(input_vector, tfidf_matrix)[0]
+    similarities = cosine_similarity(tfidf_matrix[input_index], tfidf_matrix)[0]
 
     brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
     config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
     status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+    description_col = 'Description' if 'Description' in df.columns else None
 
     input_config = input_row.iloc[0][config_col]
-
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
@@ -106,29 +129,27 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-    columns_to_return = ['SKU', brand_col, config_col, status_col, 'similarity']
+    columns_to_return = ['SKU', brand_col]
+    if description_col:
+        columns_to_return.append(description_col)
+    columns_to_return += [config_col, status_col, 'similarity']
+
     rename_dict = {
         brand_col: 'Brand',
         config_col: 'Configuration',
-        status_col: 'Model Status'
+        status_col: 'Model Status',
+        'similarity': 'Similarity Score'
     }
-
-    if 'Console Control Type' in df.columns:
-        columns_to_return.insert(-1, 'Console Control Type')
-        rename_dict['Console Control Type'] = 'Console Control Type'
-    elif 'spec_22' in df.columns:
-        columns_to_return.insert(-1, 'spec_22')
-        rename_dict['spec_22'] = 'Console Control Type'
+    if description_col:
+        rename_dict[description_col] = 'Description'
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# Step 5: UI Inputs
+# 🧠 User Input
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-# Step 6: Execute Matching and Display Results
-result_df = None
-
+# 🖥️ Show Matches
 if input_sku:
     if search_type == "GE only":
         result_df = find_similar_ge_same_config(input_sku)
@@ -136,26 +157,12 @@ if input_sku:
         result_df = find_similar_non_ge_same_config(input_sku)
 
     if isinstance(result_df, pd.DataFrame):
-        try:
-            result_df = result_df.reset_index(drop=True)
-            result_df.columns = result_df.columns.map(str)
-
-            # Brutally force every value to plain strings
-            for col in result_df.columns:
-                result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
-
-            result_df.index.name = None  # Clear index name just in case
-
-            # Fully rebuild DataFrame using plain Python objects
-            safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
-            cleaned_df = pd.DataFrame(safe_dicts)
-
-            # Finally show as static table (safe)
-            st.table(cleaned_df)
-
-        except Exception as e:
-            st.error(f"Even after full cleaning, display failed: {e}")
-
+        result_df = result_df.reset_index(drop=True)
+        for col in result_df.columns:
+            result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
+        safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
+        cleaned_df = pd.DataFrame(safe_dicts)
+        st.table(cleaned_df)
     elif isinstance(result_df, str):
         st.warning(result_df)
     else:

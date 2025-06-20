@@ -64,14 +64,15 @@ valid_features = []
 if input_sku in df['SKU'].values:
     input_row = df[df['SKU'] == input_sku].iloc[0]
     valid_features = [col for col in detected_features if str(input_row[col]).strip() not in ['', 'nan', 'NaN']]
-selected_features = st.multiselect("Which features are most important to match? Selected features will apear in the results table.", options=valid_features)
+selected_features = st.multiselect("Which features are most important to match? Selected features will appear in the results table.", options=valid_features)
 
 # 🛠️ Construct weighted spec string
-df['combined_specs'] = ""
+df['combined_specs'] = ''
 for col in selected_features:
     weight = 3
     if col in df.columns:
-        df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
+        df['combined_specs'] += df[col].apply(lambda x: ((str(x) + ' ') * weight) if pd.notna(x) and str(x).strip() else '')
+
 if not selected_features:
     spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
@@ -104,19 +105,16 @@ def find_matches(input_sku, brand_filter='ge', top_n=5, strict=True):
         same_config = df_copy[config_col].notna()
 
     if brand_filter == "ge":
-        filtered = df_copy[
-            (df_copy[brand_col].str.lower() == 'ge') &
-            same_config &
-            (df_copy[status_col].str.lower() == 'active model') &
-            (df_copy['SKU'] != input_sku)
-        ]
+        brand_match = df_copy[brand_col].str.lower().str.contains("ge")
     else:
-        filtered = df_copy[
-            (df_copy[brand_col].str.lower() != 'ge') &
-            same_config &
-            (df_copy[status_col].str.lower() == 'active model') &
-            (df_copy['SKU'] != input_sku)
-        ]
+        brand_match = ~df_copy[brand_col].str.lower().str.contains("ge")
+
+    filtered = df_copy[
+        brand_match &
+        same_config &
+        (df_copy[status_col].str.lower() == 'active model') &
+        (df_copy['SKU'] != input_sku)
+    ]
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
@@ -140,7 +138,6 @@ def find_matches(input_sku, brand_filter='ge', top_n=5, strict=True):
 
 # 🖥️ Show Matches
 if input_sku:
-    # Brand detection display
     sku_row = df[df['SKU'] == input_sku]
     if not sku_row.empty and 'Brand' in df.columns:
         entered_brand = sku_row.iloc[0]['Brand']
@@ -167,7 +164,6 @@ if input_sku:
         st.subheader("📦 Competitor SKU Details")
         st.table(competitor_df.astype(str))
 
-    # Number of matches toggle
     num_results = st.number_input("How many matching SKUs would you like to see?", min_value=1, max_value=100, value=5, step=1)
 
     result_df = find_matches(
@@ -186,3 +182,4 @@ if input_sku:
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
+

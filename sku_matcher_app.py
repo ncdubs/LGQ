@@ -151,7 +151,7 @@ if input_sku:
     
         # Ensure it's truly a DataFrame
         if isinstance(result_df, pd.DataFrame):
-            st.dataframe(result_df)
+            st.table(result_df)
         else:
             st.error("Output is not a valid DataFrame.")
     

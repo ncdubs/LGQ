@@ -52,19 +52,22 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
+# 🤔 User Input
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
 # 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
 detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
 selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
 
-# 🛠️ Construct weighted spec string
+# 🛠️ Build weighted spec string
 df['combined_specs'] = ""
 for col in selected_features:
     weight = 3
     if col in df.columns:
         df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
 
-# Fallback: if nothing selected, use all
 if not selected_features:
     spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
@@ -91,12 +94,7 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
-    # Remove discontinued models
-    df_copy = df_copy[
-        ~df_copy[status_col].str.lower().str.strip().eq("discontinued")
-    ]
-
-    # Filter based on match type
+    # 💡 Filter by brand and config
     if brand_filter == "ge":
         filtered = df_copy[
             (df_copy[brand_col].str.lower() == 'ge') &
@@ -110,15 +108,18 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
             (df_copy['SKU'] != input_sku)
         ]
 
+    # ❌ Filter out discontinued models
+    filtered = filtered[~filtered[status_col].str.lower().str.contains("discontinued", na=False)]
+
+    # Sort by similarity
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
+    # Columns to show
     columns_to_return = ['SKU', brand_col]
     if description_col:
         columns_to_return.append(description_col)
     columns_to_return += [config_col, status_col]
-    for feature in selected_features:
-        if feature not in columns_to_return and feature in df.columns:
-            columns_to_return.append(feature)
+    columns_to_return += [f for f in selected_features if f in df.columns and f not in columns_to_return]
 
     rename_dict = {
         brand_col: 'Brand',
@@ -129,10 +130,6 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
         rename_dict[description_col] = 'Description'
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
-
-# 🤔 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
 # 🖥️ Show Matches
 if input_sku:
@@ -146,7 +143,7 @@ if input_sku:
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
         description_col = 'Description' if 'Description' in df.columns else None
 
-        # Competitor row table
+        # Show Competitor SKU info
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             competitor_data = {
@@ -160,14 +157,14 @@ if input_sku:
                 competitor_data["Description"] = str(raw_desc).strip()
 
             for feature in selected_features:
-                if feature not in competitor_data and feature in df.columns:
-                    competitor_data[feature] = competitor_row.iloc[0].get(feature, '')
+                if feature in competitor_row.columns:
+                    competitor_data[feature] = competitor_row[feature].values[0]
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
-        # Result table
+        # Show results
         st.subheader("📊 Closest Matching SKUs (Non-Discontinued)")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)

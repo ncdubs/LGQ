@@ -12,7 +12,7 @@ if pwd != PASSWORD:
     st.stop()
 
 # 📁 FILE UPLOADER
-st.title("GE SKU Matching Tool")
+st.title("SKU Matching Tool")
 uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xls"])
 if not uploaded_file:
     st.stop()
@@ -166,7 +166,7 @@ if input_sku:
     result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge", top_n=num_results)
 
     if isinstance(result_df, pd.DataFrame):
-        st.subheader("📊 Closest Matching SKUs (Non-Discontinued)")
+        st.subheader("📊 Closest Matching Active SKUs")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)
         st.table(cleaned_df)

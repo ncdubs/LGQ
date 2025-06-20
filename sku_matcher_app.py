@@ -73,6 +73,7 @@ for col in selected_features:
     if col in df.columns:
         df['combined_specs'] += df[col].apply(lambda x: ((str(x) + ' ') * weight) if pd.notna(x) and str(x).strip() else '')
 
+# Fallback
 if not selected_features:
     spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
@@ -99,15 +100,16 @@ def find_matches(input_sku, brand_filter='ge', top_n=5, strict=True):
     df_copy = df.copy()
     df_copy['similarity'] = similarities
 
+    # 🔁 Brand logic updated (contains 'ge')
+    if brand_filter == "ge":
+        brand_match = df_copy[brand_col].str.lower().str.contains("ge", na=False)
+    else:
+        brand_match = ~df_copy[brand_col].str.lower().str.contains("ge", na=False)
+
     if strict:
         same_config = df_copy[config_col].str.lower() == input_config.lower()
     else:
         same_config = df_copy[config_col].notna()
-
-    if brand_filter == "ge":
-        brand_match = df_copy[brand_col].str.lower().str.contains("ge")
-    else:
-        brand_match = ~df_copy[brand_col].str.lower().str.contains("ge")
 
     filtered = df_copy[
         brand_match &
@@ -182,4 +184,3 @@ if input_sku:
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
-

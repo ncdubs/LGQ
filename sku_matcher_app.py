@@ -60,7 +60,7 @@ df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
-# 🔎 Matching Function
+# 🔎 Matching Functions
 def find_matches(input_sku, brand_filter='ge', top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
@@ -108,7 +108,7 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# 🧠 User Input
+# 🤔 User Input
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
@@ -135,8 +135,7 @@ if input_sku:
             }
             if description_col:
                 raw_desc = competitor_row.iloc[0][description_col]
-                cleaned_desc = re.sub(r"^\d+\s*Description\s*", "", str(raw_desc), flags=re.IGNORECASE)
-                competitor_data["Description"] = cleaned_desc
+                competitor_data["Description"] = re.sub(r"^\\d+\\s*", "", str(raw_desc))
 
             ordered_cols = ['SKU', 'Brand']
             if 'Description' in competitor_data: ordered_cols.append('Description')
@@ -146,7 +145,10 @@ if input_sku:
             competitor_df.index = ['Competitor']
 
             result_df = result_df[ordered_cols].astype(str)
-            final_display_df = pd.concat([competitor_df, result_df])
+
+            # Combine and assign custom index
+            final_display_df = pd.concat([competitor_df, result_df], ignore_index=False)
+            final_display_df.index = ['Competitor'] + [str(i) for i in range(len(result_df))]
 
             st.subheader("📊 Comparison: Competitor vs. Closest GE Matches")
             st.table(final_display_df)

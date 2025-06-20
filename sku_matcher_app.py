@@ -136,7 +136,7 @@ if input_sku:
             }
             if description_col:
                 raw_desc = competitor_row.iloc[0][description_col]
-                competitor_data["Description"] = raw_desc.strip()
+                competitor_data["Description"] = str(raw_desc).strip()
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")

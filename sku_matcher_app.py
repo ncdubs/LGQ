@@ -59,17 +59,24 @@ strict_config = st.checkbox("Strict configuration match", value=True)
 # 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
 
-excluded_cols = ['SKU', 'combined_specs', 'Description']
-detected_features = [col for col in df.columns if col not in excluded_cols]
+# Drop down cleanup logic
+always_shown = {'Brand', 'Configuration', 'Model Status', 'Description'}
+nonsensical = {'Category', 'Category ID', 'Product ID'}
+excluded = always_shown.union(nonsensical)
+
+detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
 valid_features = []
+
 if input_sku in df['SKU'].values:
     input_row = df[df['SKU'] == input_sku].iloc[0]
-    valid_features = [col for col in detected_features if str(input_row[col]).strip() not in ['', 'nan', 'NaN']]
+    valid_features = [
+        col for col in detected_features 
+        if col not in excluded and str(input_row[col]).strip() not in ['', 'nan', 'NaN']
+    ]
 
 selected_features = st.multiselect(
-    "Which features are most important to match? (Limit: 5)",
-    options=valid_features,
-    max_selections=5
+    "Which features are most important to match? Selected features will appear in the results table.",
+    options=valid_features
 )
 
 # 🛠️ Construct weighted spec string
@@ -96,10 +103,10 @@ def find_matches(input_sku, brand_filter='ge', top_n=5, strict=True):
     input_index = input_row.index[0]
     similarities = cosine_similarity(tfidf_matrix[input_index], tfidf_matrix)[0]
 
-    brand_col = 'Brand'
-    config_col = 'Configuration'
-    status_col = 'Model Status'
-    description_col = 'Description'
+    brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
+    config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
+    status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+    description_col = 'Description' if 'Description' in df.columns else None
 
     input_config = input_row.iloc[0][config_col]
     df_copy = df.copy()

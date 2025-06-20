@@ -135,13 +135,11 @@ if input_sku:
 
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
-
-        # Convert all values to strings to avoid serialization issues
-        # Convert all cells and column headers to plain strings (fully Streamlit-safe)
+    
+        # ✅ Full string conversion of data and headers
         result_df = result_df.astype(str)
         result_df.columns = result_df.columns.astype(str)
-
-
+    
         try:
             st.table(result_df)
         except Exception as e:

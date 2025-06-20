@@ -126,14 +126,28 @@ input_sku = st.text_input("Enter a competitor SKU:")
 match_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
 # --- Trigger Match ---
-if isinstance(result_df, pd.DataFrame):
-    result_df = result_df.reset_index(drop=True)
+# --- Trigger Match ---
+if input_sku:
+    result_df = match_skus(
+        input_sku,
+        brand_filter="ge" if match_type == "GE only" else "non-ge"
+    )
 
-    # Convert all values to strings to avoid serialization issues
-    for col in result_df.columns:
-        result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
+    if isinstance(result_df, pd.DataFrame):
+        result_df = result_df.reset_index(drop=True)
 
-    try:
-        st.table(result_df)
-    except Exception as e:
-        st.error(f"Failed to display results: {e}")
+        # Convert all values to strings to avoid serialization issues
+        for col in result_df.columns:
+            result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
+
+        try:
+            st.table(result_df)
+        except Exception as e:
+            st.error(f"Failed to display results: {e}")
+
+    elif isinstance(result_df, str):
+        st.warning(result_df)
+
+    else:
+        st.error("Unexpected result format.")
+

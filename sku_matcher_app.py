@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re
 
 # 🔐 PASSWORD PROTECTION
-PASSWORD = "gepower$2024"
+PASSWORD = "geonly123"
 pwd = st.text_input("Enter password", type="password")
 if pwd != PASSWORD:
     st.warning("Access denied.")

@@ -160,7 +160,7 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
-        # ✅ Show competitor info at the top
+        # ✅ Get and clean the competitor row
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
@@ -168,59 +168,36 @@ if input_sku:
             status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
             description_col = 'Description' if 'Description' in df.columns else None
 
-            summary_data = {
+            competitor_data = {
                 "SKU": input_sku,
                 "Brand": competitor_row.iloc[0].get(brand_col, ''),
                 "Configuration": competitor_row.iloc[0].get(config_col, ''),
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                summary_data["Description"] = competitor_row.iloc[0].get(description_col, '')
+                competitor_data["Description"] = competitor_row.iloc[0].get(description_col, '')
 
-            st.subheader("📦 Competitor SKU Details")
-            st.table(pd.DataFrame([summary_data]))
+            # Reorder for display
+            ordered_columns = ['SKU', 'Brand']
+            if 'Description' in competitor_data: ordered_columns.append('Description')
+            ordered_columns += ['Configuration', 'Model Status']
 
-        # ✅ Convert every cell to string (safe serialization)
-        # ✅ Get and clean the competitor row
-competitor_row = df[df['SKU'] == input_sku]
-if not competitor_row.empty:
-    brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-    config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-    status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-    description_col = 'Description' if 'Description' in df.columns else None
-    
-    competitor_data = {
-        "SKU": input_sku,
-        "Brand": competitor_row.iloc[0].get(brand_col, ''),
-        "Configuration": competitor_row.iloc[0].get(config_col, ''),
-        "Model Status": competitor_row.iloc[0].get(status_col, '')
-    }
-    if description_col:
-            competitor_data["Description"] = competitor_row.iloc[0].get(description_col, '')
-    
-    # Reorder for display
-    ordered_columns = ['SKU', 'Brand']
-    if 'Description' in competitor_data: ordered_columns.append('Description')
-    ordered_columns += ['Configuration', 'Model Status']
-    
-    competitor_df = pd.DataFrame([competitor_data])[ordered_columns]
-    competitor_df.index = ['Competitor']  # ← Label the row
-    
-    # ✅ Clean and prepare the result rows
-    result_df = result_df.reset_index(drop=True)
-    safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
-    cleaned_result_df = pd.DataFrame(safe_dicts)
-    
-     # Make sure column order matches
-    cleaned_result_df = cleaned_result_df[competitor_df.columns]
-    
-    # 🔗 Combine into one display table
-    final_display_df = pd.concat([competitor_df, cleaned_result_df], axis=0)
-    
-     # ✅ Show the whole thing
-    st.subheader("📊 Comparison: Competitor vs. Closest GE Matches")
-    st.table(final_display_df)
+            competitor_df = pd.DataFrame([competitor_data])[ordered_columns]
+            competitor_df.index = ['Competitor']  # ← Label the row
 
+            # ✅ Clean and prepare the result rows
+            safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
+            cleaned_result_df = pd.DataFrame(safe_dicts)
+
+            # Match column order
+            cleaned_result_df = cleaned_result_df[competitor_df.columns]
+
+            # 🔗 Combine into one table
+            final_display_df = pd.concat([competitor_df, cleaned_result_df], axis=0)
+
+            # ✅ Display
+            st.subheader("📊 Comparison: Competitor vs. Closest GE Matches")
+            st.table(final_display_df)
 
     elif isinstance(result_df, str):
         st.warning(result_df)

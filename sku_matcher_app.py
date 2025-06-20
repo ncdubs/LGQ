@@ -119,11 +119,13 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
+        # Columns
         brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
         config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
         description_col = 'Description' if 'Description' in df.columns else None
 
+        # Competitor row table
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             competitor_data = {
@@ -140,6 +142,7 @@ if input_sku:
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
+        # Result table
         st.subheader("📊 Closest Matching SKUs")
         st.table(result_df.astype(str))
 

@@ -159,31 +159,32 @@ if input_sku:
 
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
-        # 🔍 Show input (competitor) SKU details at the top
-competitor_row = df[df['SKU'] == input_sku]
-if not competitor_row.empty:
-    brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-    config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-    status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-    description_col = 'Description' if 'Description' in df.columns else None
 
-    summary_data = {
-        "SKU": input_sku,
-        "Brand": competitor_row.iloc[0].get(brand_col, ''),
-        "Configuration": competitor_row.iloc[0].get(config_col, ''),
-        "Model Status": competitor_row.iloc[0].get(status_col, '')
-    }
-    if description_col:
-        summary_data["Description"] = competitor_row.iloc[0].get(description_col, '')
+        # ✅ Show competitor info at the top
+        competitor_row = df[df['SKU'] == input_sku]
+        if not competitor_row.empty:
+            brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
+            config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
+            status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+            description_col = 'Description' if 'Description' in df.columns else None
 
-    st.subheader("📦 Competitor SKU Details")
-    st.table(pd.DataFrame([summary_data]))
+            summary_data = {
+                "SKU": input_sku,
+                "Brand": competitor_row.iloc[0].get(brand_col, ''),
+                "Configuration": competitor_row.iloc[0].get(config_col, ''),
+                "Model Status": competitor_row.iloc[0].get(status_col, '')
+            }
+            if description_col:
+                summary_data["Description"] = competitor_row.iloc[0].get(description_col, '')
 
+            st.subheader("📦 Competitor SKU Details")
+            st.table(pd.DataFrame([summary_data]))
 
-        # ✅ Clean every cell + header to string
+        # ✅ Convert every cell to string (safe serialization)
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)
 
+        st.subheader("🧠 Top Matches")
         st.table(cleaned_df)
 
     elif isinstance(result_df, str):

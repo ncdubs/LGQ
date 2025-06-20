@@ -91,19 +91,22 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
-    # Filter by match type and only Active models
+    # Remove discontinued models
+    df_copy = df_copy[
+        ~df_copy[status_col].str.lower().str.strip().eq("discontinued")
+    ]
+
+    # Filter based on match type
     if brand_filter == "ge":
         filtered = df_copy[
             (df_copy[brand_col].str.lower() == 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy[status_col].str.lower() == "active") &
             (df_copy['SKU'] != input_sku)
         ]
     else:
         filtered = df_copy[
             (df_copy[brand_col].str.lower() != 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy[status_col].str.lower() == "active") &
             (df_copy['SKU'] != input_sku)
         ]
 
@@ -165,7 +168,7 @@ if input_sku:
             st.table(competitor_df.astype(str))
 
         # Result table
-        st.subheader("📊 Closest Matching SKUs (Active Models Only)")
+        st.subheader("📊 Closest Matching SKUs (Non-Discontinued)")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)
         st.table(cleaned_df)

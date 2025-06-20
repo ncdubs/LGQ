@@ -90,10 +90,12 @@ important_features = st.multiselect(
 )
 
 # --- COMBINE SPEC TEXT BASED ON WEIGHTS ---
-df['combined_specs'] = ""
+df['combined_specs'] = ''  # initialize it first
+
 for col in df.columns:
     weight = 3 if col in important_features else 1
-    df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
+    df['combined_specs'] += ((df[col].astype(str) + ' ') * weight)
+
 
 # --- TF-IDF MODEL ---
 vectorizer = TfidfVectorizer()

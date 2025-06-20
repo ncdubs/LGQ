@@ -144,7 +144,10 @@ if input_sku:
 
         # Result table
         st.subheader("📊 Closest Matching SKUs")
-        st.table(result_df.astype(str))
+        safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
+        cleaned_df = pd.DataFrame(safe_dicts)
+        st.table(cleaned_df)
+
 
     elif isinstance(result_df, str):
         st.warning(result_df)

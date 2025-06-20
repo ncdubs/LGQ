@@ -32,14 +32,12 @@ df['SKU'] = df['SKU'].astype(str)
 # Step 2: Combine all spec columns into one text field
 spec_columns = [col for col in df.columns if col != 'SKU']
 df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
-df = df.copy()
 
 # Step 3: TF-IDF vectorization
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
 # Step 4: Matching Functions
-
 def find_similar_ge_same_config(input_sku, top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
@@ -128,7 +126,7 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-# Step 6: Execute Matching and Show Table
+# Step 6: Execute Matching and Display Results
 result_df = None
 
 if input_sku:
@@ -138,21 +136,25 @@ if input_sku:
         result_df = find_similar_non_ge_same_config(input_sku)
 
     if isinstance(result_df, pd.DataFrame):
-        result_df = result_df.reset_index(drop=True)
-        result_df.columns = result_df.columns.map(str)
-        result_df = result_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+        try:
+            result_df = result_df.reset_index(drop=True)
+            result_df.columns = result_df.columns.map(str)
 
-        # Debug info to see what's going wrong if anything
-        st.write("=== DEBUG: First few rows ===")
-        st.write(result_df.head())
-        st.write("=== DEBUG: Column types ===")
-        st.write(result_df.dtypes.to_dict())
+            # Brutally force every value to plain strings
+            for col in result_df.columns:
+                result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
 
-        # Force everything to Python strings just in case
-        for col in result_df.columns:
-            result_df[col] = result_df[col].astype(str)
+            result_df.index.name = None  # Clear index name just in case
 
-        st.table(result_df)
+            # Fully rebuild DataFrame using plain Python objects
+            safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
+            cleaned_df = pd.DataFrame(safe_dicts)
+
+            # Finally show as static table (safe)
+            st.table(cleaned_df)
+
+        except Exception as e:
+            st.error(f"Even after full cleaning, display failed: {e}")
 
     elif isinstance(result_df, str):
         st.warning(result_df)

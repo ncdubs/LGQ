@@ -64,7 +64,7 @@ valid_features = []
 if input_sku in df['SKU'].values:
     input_row = df[df['SKU'] == input_sku].iloc[0]
     valid_features = [col for col in detected_features if str(input_row[col]).strip() not in ['', 'nan', 'NaN']]
-selected_features = st.multiselect("Which features are most important to match?", options=valid_features)
+selected_features = st.multiselect("Which features are most important to match? Selected features will apear in the results table.", options=valid_features)
 
 # 🛠️ Construct weighted spec string
 df['combined_specs'] = ""

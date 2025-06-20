@@ -52,11 +52,7 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🤔 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
-
-# 🎛️ Feature Matching Preferences (AFTER SKU selection)
+# 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
 detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
 selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
@@ -95,27 +91,31 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
+    # Filter by match type and only Active models
     if brand_filter == "ge":
         filtered = df_copy[
             (df_copy[brand_col].str.lower() == 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
+            (df_copy[status_col].str.lower() == "active") &
             (df_copy['SKU'] != input_sku)
         ]
     else:
         filtered = df_copy[
             (df_copy[brand_col].str.lower() != 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
+            (df_copy[status_col].str.lower() == "active") &
             (df_copy['SKU'] != input_sku)
         ]
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-    # Columns to return
     columns_to_return = ['SKU', brand_col]
     if description_col:
         columns_to_return.append(description_col)
     columns_to_return += [config_col, status_col]
-    columns_to_return += [col for col in selected_features if col not in columns_to_return and col in df.columns]
+    for feature in selected_features:
+        if feature not in columns_to_return and feature in df.columns:
+            columns_to_return.append(feature)
 
     rename_dict = {
         brand_col: 'Brand',
@@ -127,6 +127,10 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
+# 🤔 User Input
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
 # 🖥️ Show Matches
 if input_sku:
     result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
@@ -134,7 +138,6 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
-        # Columns
         brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
         config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
@@ -150,17 +153,19 @@ if input_sku:
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                competitor_data["Description"] = str(competitor_row.iloc[0][description_col]).strip()
+                raw_desc = competitor_row[description_col].values[0]
+                competitor_data["Description"] = str(raw_desc).strip()
 
-            for col in selected_features:
-                competitor_data[col] = competitor_row.iloc[0].get(col, '')
+            for feature in selected_features:
+                if feature not in competitor_data and feature in df.columns:
+                    competitor_data[feature] = competitor_row.iloc[0].get(feature, '')
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
         # Result table
-        st.subheader("📊 Closest Matching SKUs")
+        st.subheader("📊 Closest Matching SKUs (Active Models Only)")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)
         st.table(cleaned_df)

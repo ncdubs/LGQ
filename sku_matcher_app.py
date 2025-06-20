@@ -52,7 +52,11 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🎛️ Feature Matching Preferences
+# 🤔 User Input
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
+# 🎛️ Feature Matching Preferences (moved *below* match type)
 st.subheader("🎛️ Feature Matching Preferences")
 detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
 selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
@@ -120,10 +124,6 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
         rename_dict[description_col] = 'Description'
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
-
-# 🤔 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
 # 🖥️ Show Matches
 if input_sku:

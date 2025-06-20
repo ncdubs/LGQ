@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import re
 
 # 🔐 PASSWORD PROTECTION
 PASSWORD = "geonly123"
@@ -59,12 +58,19 @@ strict_config = st.checkbox("Strict configuration match", value=True)
 
 # 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
-detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
+
+excluded_cols = ['SKU', 'combined_specs', 'Description']
+detected_features = [col for col in df.columns if col not in excluded_cols]
 valid_features = []
 if input_sku in df['SKU'].values:
     input_row = df[df['SKU'] == input_sku].iloc[0]
     valid_features = [col for col in detected_features if str(input_row[col]).strip() not in ['', 'nan', 'NaN']]
-selected_features = st.multiselect("Which features are most important to match? Selected features will appear in the results table.", options=valid_features)
+
+selected_features = st.multiselect(
+    "Which features are most important to match? (Limit: 5)",
+    options=valid_features,
+    max_selections=5
+)
 
 # 🛠️ Construct weighted spec string
 df['combined_specs'] = ''
@@ -73,7 +79,6 @@ for col in selected_features:
     if col in df.columns:
         df['combined_specs'] += df[col].apply(lambda x: ((str(x) + ' ') * weight) if pd.notna(x) and str(x).strip() else '')
 
-# Fallback
 if not selected_features:
     spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
@@ -91,25 +96,24 @@ def find_matches(input_sku, brand_filter='ge', top_n=5, strict=True):
     input_index = input_row.index[0]
     similarities = cosine_similarity(tfidf_matrix[input_index], tfidf_matrix)[0]
 
-    brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-    config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-    status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-    description_col = 'Description' if 'Description' in df.columns else None
+    brand_col = 'Brand'
+    config_col = 'Configuration'
+    status_col = 'Model Status'
+    description_col = 'Description'
 
     input_config = input_row.iloc[0][config_col]
     df_copy = df.copy()
     df_copy['similarity'] = similarities
 
-    # 🔁 Brand logic updated (contains 'ge')
-    if brand_filter == "ge":
-        brand_match = df_copy[brand_col].str.lower().str.contains("ge", na=False)
-    else:
-        brand_match = ~df_copy[brand_col].str.lower().str.contains("ge", na=False)
-
     if strict:
         same_config = df_copy[config_col].str.lower() == input_config.lower()
     else:
         same_config = df_copy[config_col].notna()
+
+    if brand_filter == "ge":
+        brand_match = df_copy[brand_col].str.lower().str.contains("ge")
+    else:
+        brand_match = ~df_copy[brand_col].str.lower().str.contains("ge")
 
     filtered = df_copy[
         brand_match &

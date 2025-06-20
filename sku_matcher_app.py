@@ -58,16 +58,25 @@ search_type = st.selectbox("What kind of match do you want?", ["GE only", "Compe
 
 # 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
-detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
+
+# Filter feature options based on non-empty values in the entered SKU
+feature_exclude = ['SKU', 'combined_specs']
+if input_sku and input_sku in df['SKU'].values:
+    row = df[df['SKU'] == input_sku].iloc[0]
+    detected_features = [col for col in df.columns if col not in feature_exclude and str(row[col]).strip() != '']
+else:
+    detected_features = [col for col in df.columns if col not in feature_exclude]
+
 selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
 
-# 🛠️ Build weighted spec string
+# 🛠️ Construct weighted spec string
 df['combined_specs'] = ""
 for col in selected_features:
     weight = 3
     if col in df.columns:
         df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
 
+# Fallback if nothing selected
 if not selected_features:
     spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
@@ -92,34 +101,32 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     input_config = input_row.iloc[0][config_col]
     df_copy = df.copy()
-    df_copy['similarity'] = similarities.astype(str)
+    df_copy['similarity'] = similarities
 
-    # 💡 Filter by brand and config
     if brand_filter == "ge":
         filtered = df_copy[
             (df_copy[brand_col].str.lower() == 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku)
+            (df_copy['SKU'] != input_sku) &
+            (df_copy[status_col].str.lower() != "discontinued model")
         ]
     else:
         filtered = df_copy[
             (df_copy[brand_col].str.lower() != 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku)
+            (df_copy['SKU'] != input_sku) &
+            (df_copy[status_col].str.lower() != "discontinued model")
         ]
 
-    # ❌ Filter out discontinued models
-    filtered = filtered[~filtered[status_col].str.lower().str.contains("discontinued", na=False)]
-
-    # Sort by similarity
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
-    # Columns to show
     columns_to_return = ['SKU', brand_col]
     if description_col:
         columns_to_return.append(description_col)
     columns_to_return += [config_col, status_col]
-    columns_to_return += [f for f in selected_features if f in df.columns and f not in columns_to_return]
+    for feat in selected_features:
+        if feat not in columns_to_return:
+            columns_to_return.append(feat)
 
     rename_dict = {
         brand_col: 'Brand',
@@ -143,7 +150,6 @@ if input_sku:
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
         description_col = 'Description' if 'Description' in df.columns else None
 
-        # Show Competitor SKU info
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             competitor_data = {
@@ -156,15 +162,13 @@ if input_sku:
                 raw_desc = competitor_row[description_col].values[0]
                 competitor_data["Description"] = str(raw_desc).strip()
 
-            for feature in selected_features:
-                if feature in competitor_row.columns:
-                    competitor_data[feature] = competitor_row[feature].values[0]
+            for feat in selected_features:
+                competitor_data[feat] = competitor_row.iloc[0].get(feat, '')
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
-        # Show results
         st.subheader("📊 Closest Matching SKUs (Non-Discontinued)")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)

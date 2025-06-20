@@ -17,7 +17,7 @@ uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xl
 if not uploaded_file:
     st.stop()
 
-# 🧼 Load and preprocess Excel file
+# 🩼 Load and preprocess Excel file
 df_raw = pd.read_excel(uploaded_file, header=None)
 df = df_raw.T
 df.columns = df.iloc[0]
@@ -60,7 +60,7 @@ df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
-# 🔎 Matching Functions
+# 🔎 Matching Function
 def find_matches(input_sku, brand_filter='ge', top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
@@ -119,7 +119,6 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
-        # Competitor Row
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
@@ -138,17 +137,17 @@ if input_sku:
                 competitor_data["Description"] = re.sub(r"^\\d+\\s*", "", str(raw_desc))
 
             ordered_cols = ['SKU', 'Brand']
-            if 'Description' in competitor_data: ordered_cols.append('Description')
+            if 'Description' in competitor_data:
+                ordered_cols.append('Description')
             ordered_cols += ['Configuration', 'Model Status']
 
             competitor_df = pd.DataFrame([competitor_data])[ordered_cols].astype(str)
             competitor_df.index = ['Competitor']
 
             result_df = result_df[ordered_cols].astype(str)
+            result_df.index = [str(i) for i in result_df.index]  # avoid duplicate index error
 
-            # Combine and assign custom index
-            final_display_df = pd.concat([competitor_df, result_df], ignore_index=False)
-            final_display_df.index = ['Competitor'] + [str(i) for i in range(len(result_df))]
+            final_display_df = pd.concat([competitor_df, result_df])
 
             st.subheader("📊 Comparison: Competitor vs. Closest GE Matches")
             st.table(final_display_df)
@@ -157,3 +156,4 @@ if input_sku:
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
+

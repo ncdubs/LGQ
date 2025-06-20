@@ -4,27 +4,27 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import re
 
-# --- PASSWORD PROTECTION ---
-PASSWORD = "geonly123"  # Change this later!
+# 🔐 PASSWORD PROTECTION
+PASSWORD = "geonly123"
 pwd = st.text_input("Enter password", type="password")
 if pwd != PASSWORD:
     st.warning("Access denied.")
     st.stop()
 
-# --- FILE UPLOADER ---
+# 📁 FILE UPLOADER
 st.title("GE SKU Matching Tool")
 uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xls"])
 if not uploaded_file:
     st.stop()
 
-# --- LOAD FILE AND TRANSPOSE ---
+# 🧼 Load and preprocess Excel file
 df_raw = pd.read_excel(uploaded_file, header=None)
 df = df_raw.T
 df.columns = df.iloc[0]
 df = df[1:]
 df.reset_index(drop=True, inplace=True)
 
-# --- DETECT & INSERT DESCRIPTION ROW IF NEEDED ---
+# 🔍 Look for a row that contains description-like values
 keywords = ["cu ft", "side by side", "french door", '"', "in.", "top freezer", "bottom freezer", "refrigerator"]
 searchable = df.applymap(lambda x: str(x).lower())
 row_scores = []
@@ -46,62 +46,21 @@ if row_scores:
     df = df[1:]
     df.reset_index(drop=True, inplace=True)
 
-# --- BASIC CLEANING ---
+# 🔍 Basic cleaning
 if 'SKU' not in df.columns:
     df.rename(columns={df.columns[0]: 'SKU'}, inplace=True)
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# --- DETECT PRODUCT TYPE ---
-product_keywords = {
-    "Refrigerators": ["refrigerator", "fridge", "cu ft", "freezer", "side by side"]
-}
+# 🔀 Build combined spec string for similarity
+spec_columns = [col for col in df.columns if col != 'SKU']
+df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 
-detected_product = "General"
-for keyword in product_keywords["Refrigerators"]:
-    if df.apply(lambda row: row.astype(str).str.lower().str.contains(keyword).any(), axis=1).any():
-        detected_product = "Refrigerators"
-        break
-
-# --- PRODUCT-SPECIFIC FEATURES ---
-feature_options = {
-    "Refrigerators": [
-        "Refrigerator Depth",
-        "Width (Approx.)",
-        "Depth",
-        "Standard Color",
-        "Ice and Water Options",
-        "Capacity (cu ft)",
-        "Energy Rating",
-        "Wifi Connected",
-        "ADA Compliant"
-    ]
-}
-
-available_features = [f for f in feature_options.get(detected_product, []) if f in df.columns]
-
-# --- FEATURE IMPORTANCE SELECTION ---
-st.subheader("Feature Matching Preferences")
-st.markdown(f"**Detected Product Type:** `{detected_product}`")
-important_features = st.multiselect(
-    "Which features are most important to match?",
-    options=available_features,
-    default=available_features[:3]
-)
-
-# --- COMBINE SPEC TEXT BASED ON WEIGHTS ---
-df['combined_specs'] = ''  # initialize it first
-
-for col in df.columns:
-    weight = 3 if col in important_features else 1
-    df['combined_specs'] += ((df[col].astype(str) + ' ') * weight)
-
-
-# --- TF-IDF MODEL ---
+# 🔢 TF-IDF Model
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
-# --- MATCHING FUNCTION ---
+# 🔎 Matching Function
 def find_matches(input_sku, brand_filter='ge', top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
@@ -135,31 +94,38 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
     columns_to_return = ['SKU', brand_col]
-    if description_col: columns_to_return.append(description_col)
+    if description_col:
+        columns_to_return.append(description_col)
     columns_to_return += [config_col, status_col]
 
     rename_dict = {
         brand_col: 'Brand',
         config_col: 'Configuration',
-        status_col: 'Model Status'
+        status_col: 'Model Status',
     }
     if description_col:
         rename_dict[description_col] = 'Description'
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# --- UI INPUTS ---
+# 🤔 User Input
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-# --- RUN MATCH AND DISPLAY ---
+# 🧠 Feature Weighting UI (based on input SKU)
+if input_sku and input_sku in df['SKU'].values:
+    selected_row = df[df['SKU'] == input_sku].iloc[0]
+    exclude_cols = ['SKU', 'Brand', 'Configuration', 'Model Status', 'Description', 'combined_specs']
+    feature_options = [col for col in df.columns if col not in exclude_cols and str(selected_row[col]).strip()]
+    selected_features = st.multiselect("Which features are most important to match?", feature_options)
+
+# 🖥️ Show Matches
 if input_sku:
     result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
 
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
-        # Show Competitor Info
         brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
         config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
@@ -174,13 +140,13 @@ if input_sku:
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                competitor_data["Description"] = str(competitor_row.iloc[0][description_col]).strip()
+                raw_desc = competitor_row[description_col].values[0]
+                competitor_data["Description"] = str(raw_desc).strip()
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
-        # Show Match Results
         st.subheader("📊 Closest Matching SKUs")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)

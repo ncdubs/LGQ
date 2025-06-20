@@ -52,9 +52,31 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🔀 Build combined spec string for similarity
-spec_columns = [col for col in df.columns if col != 'SKU']
-df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
+# 🔎 User Input
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
+# 📊 Feature weighting dropdown based on input SKU
+important_features = []
+if input_sku and input_sku in df['SKU'].values:
+    candidate_row = df[df['SKU'] == input_sku].iloc[0]
+    available_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
+    default_features = [f for f in available_features if "width" in f.lower() or "depth" in f.lower()]
+    important_features = st.multiselect(
+        "Which features are most important to match?",
+        options=available_features,
+        default=default_features
+    )
+
+# 🔀 Build combined spec string (with weighting if applicable)
+if important_features:
+    df['combined_specs'] = ""
+    for col in df.columns:
+        weight = 3 if col in important_features else 1
+        df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
+else:
+    spec_columns = [col for col in df.columns if col != 'SKU']
+    df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 
 # 🔢 TF-IDF Model
 vectorizer = TfidfVectorizer()
@@ -108,29 +130,20 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# 🤔 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
-
-# 🧠 Feature Weighting UI (based on input SKU)
-if input_sku and input_sku in df['SKU'].values:
-    selected_row = df[df['SKU'] == input_sku].iloc[0]
-    exclude_cols = ['SKU', 'Brand', 'Configuration', 'Model Status', 'Description', 'combined_specs']
-    feature_options = [col for col in df.columns if col not in exclude_cols and str(selected_row[col]).strip()]
-    selected_features = st.multiselect("Which features are most important to match?", feature_options)
-
-# 🖥️ Show Matches
+# 🖥️ Show Results
 if input_sku:
     result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
 
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
+        # Columns
         brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
         config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
         status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
         description_col = 'Description' if 'Description' in df.columns else None
 
+        # Competitor row table
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
             competitor_data = {
@@ -147,6 +160,7 @@ if input_sku:
             st.subheader("📦 Competitor SKU Details")
             st.table(competitor_df.astype(str))
 
+        # Result table
         st.subheader("📊 Closest Matching SKUs")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)
@@ -156,3 +170,4 @@ if input_sku:
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
+

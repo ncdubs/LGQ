@@ -142,14 +142,14 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.copy()
         result_df = result_df.reset_index(drop=True)
+    
+        # Force every column and value to string
         result_df.columns = result_df.columns.map(str)
-        result_df = result_df.astype(str)
-
-
-        try:
-            json.dumps(result_df.to_dict(orient="records"))  # test for displayability
-            st.dataframe(result_df)
-        except Exception as e:
-            st.error(f"DataFrame serialization failed: {e}")
+        for col in result_df.columns:
+            result_df[col] = result_df[col].astype(str)
+    
+        st.dataframe(result_df)
+    
     elif isinstance(result_df, str):
         st.warning(result_df)
+

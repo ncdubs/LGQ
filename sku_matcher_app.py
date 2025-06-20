@@ -56,7 +56,7 @@ df['SKU'] = df['SKU'].astype(str)
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-# 🎛️ Feature Matching Preferences (moved *below* match type)
+# 🎛️ Feature Matching Preferences (AFTER SKU selection)
 st.subheader("🎛️ Feature Matching Preferences")
 detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
 selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
@@ -110,10 +110,12 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
+    # Columns to return
     columns_to_return = ['SKU', brand_col]
     if description_col:
         columns_to_return.append(description_col)
     columns_to_return += [config_col, status_col]
+    columns_to_return += [col for col in selected_features if col not in columns_to_return and col in df.columns]
 
     rename_dict = {
         brand_col: 'Brand',
@@ -148,8 +150,10 @@ if input_sku:
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                raw_desc = competitor_row[description_col].values[0]
-                competitor_data["Description"] = str(raw_desc).strip()
+                competitor_data["Description"] = str(competitor_row.iloc[0][description_col]).strip()
+
+            for col in selected_features:
+                competitor_data[col] = competitor_row.iloc[0].get(col, '')
 
             competitor_df = pd.DataFrame([competitor_data])
             st.subheader("📦 Competitor SKU Details")

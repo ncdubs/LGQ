@@ -141,7 +141,7 @@ if input_sku:
         result_df.columns = result_df.columns.astype(str)
     
         try:
-            st.table(result_df)
+            st.dataframe(result_df)
         except Exception as e:
             st.error(f"Failed to display results: {e}")
 

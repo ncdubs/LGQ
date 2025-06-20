@@ -137,8 +137,10 @@ if input_sku:
         result_df = result_df.reset_index(drop=True)
 
         # Convert all values to strings to avoid serialization issues
-        for col in result_df.columns:
-            result_df[col] = result_df[col].apply(lambda x: str(x) if pd.notnull(x) else '')
+        # Convert all cells and column headers to plain strings (fully Streamlit-safe)
+        result_df = result_df.astype(str)
+        result_df.columns = result_df.columns.astype(str)
+
 
         try:
             st.table(result_df)

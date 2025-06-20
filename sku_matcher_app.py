@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import re
 
 # 🔐 PASSWORD PROTECTION
 PASSWORD = "geonly123"
@@ -17,8 +16,10 @@ uploaded_file = st.file_uploader("Upload your SKU Excel file", type=["xlsx", "xl
 if not uploaded_file:
     st.stop()
 
-# 🩼 Load and preprocess Excel file
+# 🧼 Step 1: Load and preprocess Excel file
 df_raw = pd.read_excel(uploaded_file, header=None)
+
+# Transpose to get SKUs as rows
 df = df_raw.T
 df.columns = df.iloc[0]
 df = df[1:]
@@ -33,6 +34,7 @@ for i, row in searchable.iterrows():
     if score > 2:
         row_scores.append((i, score))
 
+# Insert detected description row as new "Description" column
 if row_scores:
     best_row_index = sorted(row_scores, key=lambda x: x[1], reverse=True)[0][0]
     description_row = df.iloc[best_row_index]
@@ -41,6 +43,8 @@ if row_scores:
         pd.DataFrame([["Description"] + description_row.tolist()]),
         df_raw.iloc[2:]
     ]).reset_index(drop=True)
+
+    # Transpose again after inserting
     df = df_raw_rebuilt.T
     df.columns = df.iloc[0]
     df = df[1:]
@@ -52,7 +56,7 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🔀 Build combined spec string for similarity
+# 🔀 Build combined spec string for similarity matching
 spec_columns = [col for col in df.columns if col != 'SKU']
 df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 
@@ -60,8 +64,8 @@ df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 vectorizer = TfidfVectorizer()
 tfidf_matrix = vectorizer.fit_transform(df['combined_specs'])
 
-# 🔎 Matching Function
-def find_matches(input_sku, brand_filter='ge', top_n=5):
+# 🔎 Matching Functions
+def find_similar_ge_same_config(input_sku, top_n=5):
     input_row = df[df['SKU'] == input_sku]
     if input_row.empty:
         return f"SKU {input_sku} not found."
@@ -78,18 +82,11 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
 
-    if brand_filter == "ge":
-        filtered = df_copy[
-            (df_copy[brand_col].str.lower() == 'ge') &
-            (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku)
-        ]
-    else:
-        filtered = df_copy[
-            (df_copy[brand_col].str.lower() != 'ge') &
-            (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku)
-        ]
+    filtered = df_copy[
+        (df_copy[brand_col].str.lower() == 'ge') &
+        (df_copy[config_col].str.lower() == input_config.lower()) &
+        (df_copy['SKU'] != input_sku)
+    ].copy()
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
 
@@ -108,40 +105,66 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# 🤔 User Input
+def find_similar_non_ge_same_config(input_sku, top_n=5):
+    input_row = df[df['SKU'] == input_sku]
+    if input_row.empty:
+        return f"SKU {input_sku} not found."
+
+    input_index = input_row.index[0]
+    similarities = cosine_similarity(tfidf_matrix[input_index], tfidf_matrix)[0]
+
+    brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
+    config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
+    status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+    description_col = 'Description' if 'Description' in df.columns else None
+
+    input_config = input_row.iloc[0][config_col]
+    df_copy = df.copy()
+    df_copy['similarity'] = similarities.astype(str)
+
+    filtered = df_copy[
+        (df_copy[brand_col].str.lower() != 'ge') &
+        (df_copy[config_col].str.lower() == input_config.lower()) &
+        (df_copy['SKU'] != input_sku)
+    ].copy()
+
+    filtered = filtered.sort_values(by='similarity', ascending=False)
+
+    columns_to_return = ['SKU', brand_col]
+    if description_col:
+        columns_to_return.append(description_col)
+    columns_to_return += [config_col, status_col, 'similarity']
+
+    rename_dict = {
+        brand_col: 'Brand',
+        config_col: 'Configuration',
+        status_col: 'Model Status',
+        'similarity': 'Similarity Score'
+    }
+    if description_col:
+        rename_dict[description_col] = 'Description'
+
+    return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
+
+# 🧠 User Input
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
 # 🖥️ Show Matches
 if input_sku:
-    result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
+    if search_type == "GE only":
+        result_df = find_similar_ge_same_config(input_sku)
+    else:
+        result_df = find_similar_non_ge_same_config(input_sku)
 
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
-        brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-        config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-        status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-        description_col = 'Description' if 'Description' in df.columns else None
+        # ✅ Clean every cell + header to string
+        safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
+        cleaned_df = pd.DataFrame(safe_dicts)
 
-        competitor_row = df[df['SKU'] == input_sku]
-        if not competitor_row.empty:
-            competitor_data = {
-                "SKU": input_sku,
-                "Brand": competitor_row.iloc[0].get(brand_col, ''),
-                "Configuration": competitor_row.iloc[0].get(config_col, ''),
-                "Model Status": competitor_row.iloc[0].get(status_col, '')
-            }
-            if description_col:
-                raw_desc = competitor_row.iloc[0][description_col]
-                competitor_data["Description"] = re.sub(r"^\\d+\\s*", "", str(raw_desc))
-
-            competitor_df = pd.DataFrame([competitor_data])
-            st.subheader("📦 Competitor SKU Details")
-            st.table(competitor_df)
-
-        st.subheader("📊 Closest Matching SKUs")
-        st.table(result_df.astype(str))
+        st.table(cleaned_df)
 
     elif isinstance(result_df, str):
         st.warning(result_df)

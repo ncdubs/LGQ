@@ -5,7 +5,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import re
 
 # 🔐 PASSWORD PROTECTION
-PASSWORD = "geonly123"
+PASSWORD = "gepower$2024"
 pwd = st.text_input("Enter password", type="password")
 if pwd != PASSWORD:
     st.warning("Access denied.")
@@ -24,7 +24,7 @@ df.columns = df.iloc[0]
 df = df[1:]
 df.reset_index(drop=True, inplace=True)
 
-# 🔍 Look for a row that contains description-like values
+# 🔍 Detect Description Row
 keywords = ["cu ft", "side by side", "french door", '"', "in.", "top freezer", "bottom freezer", "refrigerator"]
 searchable = df.applymap(lambda x: str(x).lower())
 row_scores = []
@@ -52,30 +52,21 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🔎 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+# 🎛️ Feature Matching Preferences
+st.subheader("🎛️ Feature Matching Preferences")
+detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
+selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
 
-# 📊 Feature weighting dropdown based on input SKU
-important_features = []
-if input_sku and input_sku in df['SKU'].values:
-    candidate_row = df[df['SKU'] == input_sku].iloc[0]
-    available_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
-    default_features = [f for f in available_features if "width" in f.lower() or "depth" in f.lower()]
-    important_features = st.multiselect(
-        "Which features are most important to match?",
-        options=available_features,
-        default=default_features
-    )
-
-# 🔀 Build combined spec string (with weighting if applicable)
-if important_features:
-    df['combined_specs'] = ""
-    for col in df.columns:
-        weight = 3 if col in important_features else 1
+# 🛠️ Construct weighted spec string
+df['combined_specs'] = ""
+for col in selected_features:
+    weight = 3
+    if col in df.columns:
         df['combined_specs'] += ((df[col].astype(str) + " ") * weight)
-else:
-    spec_columns = [col for col in df.columns if col != 'SKU']
+
+# Fallback: if nothing selected, use all
+if not selected_features:
+    spec_columns = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
     df['combined_specs'] = df[spec_columns].astype(str).agg(' '.join, axis=1)
 
 # 🔢 TF-IDF Model
@@ -130,7 +121,11 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
     return filtered[columns_to_return].rename(columns=rename_dict).head(top_n)
 
-# 🖥️ Show Results
+# 🤔 User Input
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
+
+# 🖥️ Show Matches
 if input_sku:
     result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
 
@@ -170,4 +165,3 @@ if input_sku:
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
-

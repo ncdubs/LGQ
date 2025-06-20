@@ -119,13 +119,13 @@ if input_sku:
     if isinstance(result_df, pd.DataFrame):
         result_df = result_df.reset_index(drop=True)
 
+        brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
+        config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
+        status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
+        description_col = 'Description' if 'Description' in df.columns else None
+
         competitor_row = df[df['SKU'] == input_sku]
         if not competitor_row.empty:
-            brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-            config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-            status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-            description_col = 'Description' if 'Description' in df.columns else None
-
             competitor_data = {
                 "SKU": input_sku,
                 "Brand": competitor_row.iloc[0].get(brand_col, ''),
@@ -136,24 +136,14 @@ if input_sku:
                 raw_desc = competitor_row.iloc[0][description_col]
                 competitor_data["Description"] = re.sub(r"^\\d+\\s*", "", str(raw_desc))
 
-            ordered_cols = ['SKU', 'Brand']
-            if 'Description' in competitor_data:
-                ordered_cols.append('Description')
-            ordered_cols += ['Configuration', 'Model Status']
+            competitor_df = pd.DataFrame([competitor_data])
+            st.subheader("📦 Competitor SKU Details")
+            st.table(competitor_df)
 
-            competitor_df = pd.DataFrame([competitor_data])[ordered_cols].astype(str)
-            competitor_df.index = ['Competitor']
-
-            result_df = result_df[ordered_cols].astype(str)
-            result_df.index = [str(i) for i in result_df.index]  # avoid duplicate index error
-
-            final_display_df = pd.concat([competitor_df, result_df])
-
-            st.subheader("📊 Comparison: Competitor vs. Closest GE Matches")
-            st.table(final_display_df)
+        st.subheader("📊 Closest Matching SKUs")
+        st.table(result_df.astype(str))
 
     elif isinstance(result_df, str):
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
-

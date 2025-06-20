@@ -160,25 +160,3 @@ def is_displayable(df):
     except Exception as e:
         st.error(f"DataFrame serialization failed: {e}")
         return False
-
-st.write("🧪 result_df type:", type(result_df))
-if isinstance(result_df, pd.DataFrame):
-    st.write("✅ result_df columns + types:")
-    st.write(result_df.dtypes)
-
-    result_df = result_df.copy()
-    result_df = result_df.reset_index(drop=True)
-    result_df = result_df.astype(str)
-    result_df.columns = result_df.columns.astype(str)
-    result_df = result_df.applymap(str)  # <- makes every cell explicitly a string
-
-    st.write("📌 result_df shape:", result_df.shape)
-    st.write("📌 result_df preview:")
-    st.write(result_df.head())
-    st.write("📌 result_df columns:", result_df.columns.tolist())
-    st.write("📌 result_df dtypes:", result_df.dtypes.to_dict())
-
-    if is_displayable(result_df):
-        st.dataframe(result_df)
-else:
-    st.error(result_df)

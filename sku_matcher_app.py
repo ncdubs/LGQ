@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import json
 
 # 🔐 PASSWORD PROTECTION
 PASSWORD = "geonly123"
@@ -28,7 +27,6 @@ df.reset_index(drop=True, inplace=True)
 if 'SKU' not in df.columns:
     df.rename(columns={df.columns[0]: 'SKU'}, inplace=True)
 df.fillna('', inplace=True)
-df.infer_objects(copy=False)
 df['SKU'] = df['SKU'].astype(str)
 
 # Step 2: Combine all spec columns into one text field
@@ -101,7 +99,7 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 
     df_copy = df.copy()
     df_copy['similarity'] = similarities.astype(str)
-    
+
     filtered = df_copy[
         (df_copy[brand_col].str.lower() != 'ge') &
         (df_copy[config_col].str.lower() == input_config.lower()) &
@@ -130,7 +128,7 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
 input_sku = st.text_input("Enter a competitor SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-# Step 6: Execute Matching and Display Results
+# Step 6: Execute Matching and Show Table
 result_df = None
 
 if input_sku:
@@ -140,24 +138,23 @@ if input_sku:
         result_df = find_similar_non_ge_same_config(input_sku)
 
     if isinstance(result_df, pd.DataFrame):
-        result_df = result_df.copy()
         result_df = result_df.reset_index(drop=True)
-    
-        # Convert column names to strings
         result_df.columns = result_df.columns.map(str)
-    
-        # Convert all values in all columns to strings — row by row
-        result_df = result_df.applymap(lambda x: str(x) if not pd.isnull(x) else '')
-    
-        # Ensure it's truly a DataFrame
-        if isinstance(result_df, pd.DataFrame):
-            st.table(result_df)
-        else:
-            st.error("Output is not a valid DataFrame.")
-    
+        result_df = result_df.applymap(lambda x: str(x) if pd.notnull(x) else '')
+
+        # Debug info to see what's going wrong if anything
+        st.write("=== DEBUG: First few rows ===")
+        st.write(result_df.head())
+        st.write("=== DEBUG: Column types ===")
+        st.write(result_df.dtypes.to_dict())
+
+        # Force everything to Python strings just in case
+        for col in result_df.columns:
+            result_df[col] = result_df[col].astype(str)
+
+        st.table(result_df)
+
     elif isinstance(result_df, str):
         st.warning(result_df)
     else:
         st.error("Unexpected result format.")
-
-

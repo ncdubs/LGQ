@@ -56,7 +56,7 @@ df['SKU'] = df['SKU'].astype(str)
 st.subheader("🎛️ Feature Matching Preferences")
 
 # Detect features with non-blank values in the input SKU row
-input_sku = st.text_input("Enter a competitor SKU:")
+input_sku = st.text_input("Enter a SKU:")
 search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
 detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]

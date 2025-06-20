@@ -175,7 +175,7 @@ if input_sku:
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                competitor_data["Description"] = competitor_row[description_col].astype(str).values[0]
+                competitor_data["Description"] = str(competitor_row.iloc[0][description_col])
 
             # Reorder for display
             ordered_columns = ['SKU', 'Brand']

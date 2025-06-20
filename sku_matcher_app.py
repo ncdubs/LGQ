@@ -100,8 +100,8 @@ def find_similar_non_ge_same_config(input_sku, top_n=5):
     input_config = input_row.iloc[0][config_col]
 
     df_copy = df.copy()
-    df_copy['similarity'] = similarities
-
+    df_copy['similarity'] = similarities.astype(str)
+    
     filtered = df_copy[
         (df_copy[brand_col].str.lower() != 'ge') &
         (df_copy[config_col].str.lower() == input_config.lower()) &

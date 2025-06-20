@@ -52,22 +52,20 @@ if 'SKU' not in df.columns:
 df.fillna('', inplace=True)
 df['SKU'] = df['SKU'].astype(str)
 
-# 🤔 User Input
-input_sku = st.text_input("Enter a competitor SKU:")
-search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
-
 # 🎛️ Feature Matching Preferences
 st.subheader("🎛️ Feature Matching Preferences")
 
-# Filter feature options based on non-empty values in the entered SKU
-feature_exclude = ['SKU', 'combined_specs']
-if input_sku and input_sku in df['SKU'].values:
-    row = df[df['SKU'] == input_sku].iloc[0]
-    detected_features = [col for col in df.columns if col not in feature_exclude and str(row[col]).strip() != '']
-else:
-    detected_features = [col for col in df.columns if col not in feature_exclude]
+# Detect features with non-blank values in the input SKU row
+input_sku = st.text_input("Enter a competitor SKU:")
+search_type = st.selectbox("What kind of match do you want?", ["GE only", "Competitor (non-GE)"])
 
-selected_features = st.multiselect("Which features are most important to match?", options=detected_features)
+detected_features = [col for col in df.columns if col not in ['SKU', 'combined_specs']]
+valid_features = []
+if input_sku in df['SKU'].values:
+    input_row = df[df['SKU'] == input_sku].iloc[0]
+    valid_features = [col for col in detected_features if str(input_row[col]).strip() not in ['', 'nan', 'NaN']]
+
+selected_features = st.multiselect("Which features are most important to match?", options=valid_features)
 
 # 🛠️ Construct weighted spec string
 df['combined_specs'] = ""
@@ -103,19 +101,20 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
     df_copy = df.copy()
     df_copy['similarity'] = similarities
 
+    # Filter by brand, config, and active models only
     if brand_filter == "ge":
         filtered = df_copy[
             (df_copy[brand_col].str.lower() == 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku) &
-            (df_copy[status_col].str.lower() != "discontinued model")
+            (df_copy[status_col].str.lower() == 'active model') &
+            (df_copy['SKU'] != input_sku)
         ]
     else:
         filtered = df_copy[
             (df_copy[brand_col].str.lower() != 'ge') &
             (df_copy[config_col].str.lower() == input_config.lower()) &
-            (df_copy['SKU'] != input_sku) &
-            (df_copy[status_col].str.lower() != "discontinued model")
+            (df_copy[status_col].str.lower() == 'active model') &
+            (df_copy['SKU'] != input_sku)
         ]
 
     filtered = filtered.sort_values(by='similarity', ascending=False)
@@ -140,35 +139,33 @@ def find_matches(input_sku, brand_filter='ge', top_n=5):
 
 # 🖥️ Show Matches
 if input_sku:
-    result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge")
+    competitor_row = df[df['SKU'] == input_sku]
+    if not competitor_row.empty:
+        brand_col = 'Brand'
+        config_col = 'Configuration'
+        status_col = 'Model Status'
+        description_col = 'Description'
+
+        competitor_data = {
+            "SKU": input_sku,
+            "Brand": competitor_row.iloc[0].get(brand_col, ''),
+            "Configuration": competitor_row.iloc[0].get(config_col, ''),
+            "Model Status": competitor_row.iloc[0].get(status_col, '')
+        }
+        if description_col:
+            competitor_data["Description"] = str(competitor_row[description_col].values[0]).strip()
+        for feat in selected_features:
+            competitor_data[feat] = competitor_row.iloc[0].get(feat, '')
+        competitor_df = pd.DataFrame([competitor_data])
+        st.subheader("📦 Competitor SKU Details")
+        st.table(competitor_df.astype(str))
+
+    # ⬇️ NEW: input for number of matching results
+    num_results = st.number_input("How many matching SKUs would you like to see?", min_value=1, max_value=100, value=5, step=1)
+
+    result_df = find_matches(input_sku, brand_filter="ge" if search_type == "GE only" else "non-ge", top_n=num_results)
 
     if isinstance(result_df, pd.DataFrame):
-        result_df = result_df.reset_index(drop=True)
-
-        brand_col = 'Brand' if 'Brand' in df.columns else 'spec_14'
-        config_col = 'Configuration' if 'Configuration' in df.columns else 'spec_7'
-        status_col = 'Model Status' if 'Model Status' in df.columns else 'spec_9'
-        description_col = 'Description' if 'Description' in df.columns else None
-
-        competitor_row = df[df['SKU'] == input_sku]
-        if not competitor_row.empty:
-            competitor_data = {
-                "SKU": input_sku,
-                "Brand": competitor_row.iloc[0].get(brand_col, ''),
-                "Configuration": competitor_row.iloc[0].get(config_col, ''),
-                "Model Status": competitor_row.iloc[0].get(status_col, '')
-            }
-            if description_col:
-                raw_desc = competitor_row[description_col].values[0]
-                competitor_data["Description"] = str(raw_desc).strip()
-
-            for feat in selected_features:
-                competitor_data[feat] = competitor_row.iloc[0].get(feat, '')
-
-            competitor_df = pd.DataFrame([competitor_data])
-            st.subheader("📦 Competitor SKU Details")
-            st.table(competitor_df.astype(str))
-
         st.subheader("📊 Closest Matching SKUs (Non-Discontinued)")
         safe_dicts = [{k: str(v) for k, v in row.items()} for _, row in result_df.iterrows()]
         cleaned_df = pd.DataFrame(safe_dicts)

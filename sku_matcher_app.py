@@ -135,7 +135,7 @@ if input_sku:
                 "Model Status": competitor_row.iloc[0].get(status_col, '')
             }
             if description_col:
-                raw_desc = competitor_row.iloc[0][description_col]
+                raw_desc = competitor_row[description_col].values[0]
                 competitor_data["Description"] = str(raw_desc).strip()
 
             competitor_df = pd.DataFrame([competitor_data])

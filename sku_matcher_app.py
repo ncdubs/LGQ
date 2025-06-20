@@ -143,13 +143,21 @@ if input_sku:
         result_df = result_df.copy()
         result_df = result_df.reset_index(drop=True)
     
-        # Force every column and value to string
+        # Convert column names to strings
         result_df.columns = result_df.columns.map(str)
-        for col in result_df.columns:
-            result_df[col] = result_df[col].astype(str)
     
-        st.dataframe(result_df)
+        # Convert all values in all columns to strings — row by row
+        result_df = result_df.applymap(lambda x: str(x) if not pd.isnull(x) else '')
+    
+        # Ensure it's truly a DataFrame
+        if isinstance(result_df, pd.DataFrame):
+            st.dataframe(result_df)
+        else:
+            st.error("Output is not a valid DataFrame.")
     
     elif isinstance(result_df, str):
         st.warning(result_df)
+    else:
+        st.error("Unexpected result format.")
+
 
